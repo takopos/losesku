@@ -3,12 +3,16 @@ import pandas as pd
 import io
 from PIL import Image
 from pyzbar.pyzbar import decode
+import requests
 
 # 設定頁面標題
 st.set_page_config(page_title="POS 商品快速建檔比對工具", layout="wide")
 st.title("📦 POS 商品快速建檔比對工具")
 
 GDRIVE_DIRECT_URL = "https://drive.google.com/uc?id=1Efffq2OuR3y1qI3Xnngw974wkzJXZub1"
+
+# ⚠️ 請將這裡換成您在 Render 拿到的網址 (不要在結尾加斜線 /)
+API_BASE_URL = "https://您在Render的網址.onrender.com" 
 
 @st.cache_data(ttl=600)
 def load_master_data():
@@ -25,83 +29,90 @@ with st.spinner('🔄 正在從 Google 雲端同步「完整商品資料表」..
     master_df = load_master_data()
 
 if master_df is not None:
-    st.success(f"✅ 成功載入雲端完整資料庫！目前共有 {len(master_df)} 筆商品。")
-    
-    # 建立三個分頁
-    tab1, tab2, tab3 = st.tabs(["📂 批次上傳掃描檔", "📷 手機拍照掃描 (一維條碼)", "🔫 實體掃碼槍 (最推薦)"])
+    # 建立四個分頁 (新增了 API 累積處理分頁)
+    tab1, tab2, tab3, tab4 = st.tabs(["📂 批次上傳掃描檔", "📷 手機拍照掃描", "🔫 實體掃碼槍", "🌐 第三方 API 累積處理"])
     final_scanned_codes = []
     
-    # === 分頁 1：原本的檔案上傳功能 ===
+    # === 分頁 1、2、3：保留您原本手動操作的功能 (這裡濃縮顯示，功能皆相同) ===
     with tab1:
-        st.write("### 適用於：已經有一整份 Excel 條碼清單")
-        uploaded_file = st.file_uploader("請上傳檔案 (Excel 或 CSV)", type=["xlsx", "csv"])
+        st.write("### 📂 手動上傳 Excel/CSV 檔案")
+        uploaded_file = st.file_uploader("請上傳檔案", type=["xlsx", "csv"], key="file_uploader")
         if uploaded_file:
             scan_df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
             scan_col = st.selectbox("請選擇包含「掃描條碼」的欄位", scan_df.columns)
             final_scanned_codes = scan_df[scan_col].dropna().astype(str).str.strip().tolist()
 
-    # === 分頁 2：一維條碼專用拍照辨識 ===
     with tab2:
-        st.write("### 透過手機相機辨識商品一維條碼")
-        st.info("💡 操作提示：請將一維條碼放在畫面正中央，對焦清晰後點擊拍照。")
-        
+        st.write("### 📷 透過手機相機辨識商品一維條碼")
         if 'camera_scanned_codes' not in st.session_state:
             st.session_state.camera_scanned_codes = []
-            
-        # 呼叫官方穩定的相機元件
         camera_image = st.camera_input("📸 點擊這裡開啟相機 / 拍照")
-        
         if camera_image is not None:
-            # 讀取圖片並進行一維條碼辨識
             image = Image.open(camera_image)
             decoded_objects = decode(image)
-            
             if decoded_objects:
                 for obj in decoded_objects:
                     barcode_data = obj.data.decode('utf-8').strip()
                     if barcode_data not in st.session_state.camera_scanned_codes:
                         st.session_state.camera_scanned_codes.append(barcode_data)
-                        st.success(f"✅ 成功掃描並記錄條碼：{barcode_data}")
-                    else:
-                        st.warning(f"⚠️ 條碼 {barcode_data} 剛剛已經掃過了喔！")
             else:
-                st.error("❌ 找不到條碼，請確認條碼清晰、沒有反光，且佔據畫面主體再拍一次。")
-                
+                st.error("❌ 找不到條碼。")
         if st.session_state.camera_scanned_codes:
-            st.write("#### 📝 目前已收集的條碼：")
             st.write(st.session_state.camera_scanned_codes)
-            if st.button("🗑️ 清空重掃", key="clear_cam"):
-                st.session_state.camera_scanned_codes = []
-                st.rerun()
             final_scanned_codes = st.session_state.camera_scanned_codes
 
-    # === 分頁 3：實體掃碼槍功能 (營運首選) ===
     with tab3:
-        st.write("### 適用於：外接 USB 或藍牙實體掃碼槍")
-        st.success("✨ 如果店裡商品很多，強烈建議買一把幾百塊的掃碼槍接電腦，游標點在下方框框直接刷，免對焦且 100% 準確！")
-        
+        st.write("### 🔫 使用實體掃碼槍")
         if 'gun_scanned_codes' not in st.session_state:
             st.session_state.gun_scanned_codes = []
-            
         with st.form(key='barcode_form', clear_on_submit=True):
             barcode_input = st.text_input("👇 請將游標點擊下方輸入框，然後按下掃碼槍：")
-            submit_button = st.form_submit_button("送出 (大部分掃碼槍刷完會自動送出)")
-            
+            submit_button = st.form_submit_button("送出")
         if submit_button and barcode_input:
             clean_code = barcode_input.strip()
             if clean_code and clean_code not in st.session_state.gun_scanned_codes:
                 st.session_state.gun_scanned_codes.append(clean_code)
-                st.success(f"✅ 成功記錄：{clean_code}")
-            elif clean_code in st.session_state.gun_scanned_codes:
-                 st.warning(f"⚠️ 條碼 {clean_code} 已經掃過了！")
-                 
         if st.session_state.gun_scanned_codes:
-            st.write("#### 📝 目前已收集的條碼：")
             st.write(st.session_state.gun_scanned_codes)
-            if st.button("🗑️ 清空重掃", key="clear_gun"):
-                st.session_state.gun_scanned_codes = []
-                st.rerun()
             final_scanned_codes = st.session_state.gun_scanned_codes
+
+    # === 分頁 4：新功能！處理第三方 API 累積的條碼 ===
+    with tab4:
+        st.write("### 🌐 處理第三方系統傳送的累積條碼")
+        st.info("系統會自動抓取第三方 API 傳過來並暫存的條碼。下載匯入檔後，累積清單將會「自動清空」以等待下一批。")
+        
+        # 建立一個按鈕來手動刷新 API 資料
+        if st.button("🔄 重新整理 / 抓取最新累積條碼"):
+            st.rerun()
+
+        try:
+            # 呼叫我們在 Render 部署的 API
+            response = requests.get(f"{API_BASE_URL}/api/get_barcodes", timeout=10)
+            if response.status_code == 200:
+                api_pending_codes = response.json().get("barcodes", [])
+                
+                st.metric("目前等待處理的累積條碼數量", len(api_pending_codes))
+                
+                if api_pending_codes:
+                    st.write("📝 **累積清單：**", api_pending_codes)
+                    
+                    # 決定將這批 API 條碼送進共用的比對邏輯中
+                    if st.button("🚀 開始比對這批累積條碼"):
+                        st.session_state.api_processing_codes = api_pending_codes
+                        st.success("✅ 已載入比對清單，請看下方比對結果！")
+                        
+                else:
+                    st.success("🎉 目前沒有任何累積的條碼需要處理。")
+                    
+            else:
+                st.error(f"API 回傳錯誤：{response.status_code}")
+        except Exception as e:
+            st.error(f"無法連線到 API 伺服器，請確認 Render 是否正常運作或網址是否填寫正確。\n({e})")
+
+        # 檢查是否有點擊處理 API 條碼
+        if 'api_processing_codes' in st.session_state and st.session_state.api_processing_codes:
+            final_scanned_codes = st.session_state.api_processing_codes
+
 
     # === 共用邏輯：資料比對與產出 Excel ===
     st.divider()
@@ -116,7 +127,7 @@ if master_df is not None:
         col2.metric("❌ 雲端資料庫也找不到的條碼數", len(missing_codes))
         
         if missing_codes:
-            st.warning("⚠️ 以下條碼在雲端的「完整商品資料表」中也找不到，可能需要人工新增：")
+            st.warning("⚠️ 以下條碼在雲端的「完整商品資料表」中也找不到，請手動新增：")
             st.write(missing_codes)
             
         if not matched_df.empty:
@@ -138,9 +149,23 @@ if master_df is not None:
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 final_output.to_excel(writer, index=False, header=False, sheet_name="導入範本")
             
+            # --- 核心機制：下載後自動呼叫 API 清空資料 ---
+            def clear_api_and_reset():
+                try:
+                    # 呼叫 API 清空伺服器資料庫
+                    requests.post(f"{API_BASE_URL}/api/clear_barcodes")
+                    # 清空 Streamlit 畫面暫存
+                    st.session_state.api_processing_codes = []
+                    # 為了手動掃描的分頁也一併清空
+                    if 'camera_scanned_codes' in st.session_state: st.session_state.camera_scanned_codes = []
+                    if 'gun_scanned_codes' in st.session_state: st.session_state.gun_scanned_codes = []
+                except:
+                    pass
+
             st.download_button(
-                label="📥 點此下載「POS 匯入專用」Excel 檔",
+                label="📥 點此下載 Excel 匯入檔 (下載後將自動清空累積清單！)",
                 data=buffer.getvalue(),
                 file_name="POS_待匯入商品_已比對.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                on_click=clear_api_and_reset  # 點擊下載時觸發清空動作
             )

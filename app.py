@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import io
-from streamlit_qrcode_scanner import qrcode_scanner
+from PIL import Image
+from pyzbar.pyzbar import decode
 
 # 設定頁面標題
 st.set_page_config(page_title="POS 商品快速建檔比對工具", layout="wide")
@@ -26,8 +27,8 @@ with st.spinner('🔄 正在從 Google 雲端同步「完整商品資料表」..
 if master_df is not None:
     st.success(f"✅ 成功載入雲端完整資料庫！目前共有 {len(master_df)} 筆商品。")
     
-    # ⭐ 擴充為三個分頁
-    tab1, tab2, tab3 = st.tabs(["📂 批次上傳掃描檔", "📱 手機鏡頭連續掃描", "🔫 實體掃碼槍 (最推薦)"])
+    # 建立三個分頁
+    tab1, tab2, tab3 = st.tabs(["📂 批次上傳掃描檔", "📷 手機拍照掃描 (一維條碼)", "🔫 實體掃碼槍 (最推薦)"])
     final_scanned_codes = []
     
     # === 分頁 1：原本的檔案上傳功能 ===
@@ -39,23 +40,32 @@ if master_df is not None:
             scan_col = st.selectbox("請選擇包含「掃描條碼」的欄位", scan_df.columns)
             final_scanned_codes = scan_df[scan_col].dropna().astype(str).str.strip().tolist()
 
-    # === 分頁 2：優化版的手機鏡頭連續掃描 ===
+    # === 分頁 2：一維條碼專用拍照辨識 ===
     with tab2:
-        st.write("### 透過瀏覽器即時連續掃描 (已優化辨識速度)")
-        st.info("💡 提醒：網頁無法強制啟動手機微距鏡頭，請保持約 10~15 公分距離讓手機自動對焦。")
+        st.write("### 透過手機相機辨識商品一維條碼")
+        st.info("💡 操作提示：請將一維條碼放在畫面正中央，對焦清晰後點擊拍照。")
         
         if 'camera_scanned_codes' not in st.session_state:
             st.session_state.camera_scanned_codes = []
             
-        # 呼叫前端 JS 即時掃描套件
-        scanned_text = qrcode_scanner(key='scanner')
+        # 呼叫官方穩定的相機元件
+        camera_image = st.camera_input("📸 點擊這裡開啟相機 / 拍照")
         
-        if scanned_text:
-            if scanned_text not in st.session_state.camera_scanned_codes:
-                st.session_state.camera_scanned_codes.append(scanned_text)
-                st.success(f"✅ 成功掃描：{scanned_text}")
+        if camera_image is not None:
+            # 讀取圖片並進行一維條碼辨識
+            image = Image.open(camera_image)
+            decoded_objects = decode(image)
+            
+            if decoded_objects:
+                for obj in decoded_objects:
+                    barcode_data = obj.data.decode('utf-8').strip()
+                    if barcode_data not in st.session_state.camera_scanned_codes:
+                        st.session_state.camera_scanned_codes.append(barcode_data)
+                        st.success(f"✅ 成功掃描並記錄條碼：{barcode_data}")
+                    else:
+                        st.warning(f"⚠️ 條碼 {barcode_data} 剛剛已經掃過了喔！")
             else:
-                st.warning(f"⚠️ 條碼 {scanned_text} 剛剛已經掃過了！")
+                st.error("❌ 找不到條碼，請確認條碼清晰、沒有反光，且佔據畫面主體再拍一次。")
                 
         if st.session_state.camera_scanned_codes:
             st.write("#### 📝 目前已收集的條碼：")
@@ -65,16 +75,16 @@ if master_df is not None:
                 st.rerun()
             final_scanned_codes = st.session_state.camera_scanned_codes
 
-    # === 分頁 3：實體掃碼槍功能 (新增！) ===
+    # === 分頁 3：實體掃碼槍功能 (營運首選) ===
     with tab3:
         st.write("### 適用於：外接 USB 或藍牙實體掃碼槍")
-        st.success("✨ 店面營運最強烈建議使用此方式！實體掃碼槍「免對焦、秒讀取」，準確率 100%。")
+        st.success("✨ 如果店裡商品很多，強烈建議買一把幾百塊的掃碼槍接電腦，游標點在下方框框直接刷，免對焦且 100% 準確！")
         
         if 'gun_scanned_codes' not in st.session_state:
             st.session_state.gun_scanned_codes = []
             
         with st.form(key='barcode_form', clear_on_submit=True):
-            barcode_input = st.text_input("請將游標點擊下方輸入框，然後按下掃碼槍：")
+            barcode_input = st.text_input("👇 請將游標點擊下方輸入框，然後按下掃碼槍：")
             submit_button = st.form_submit_button("送出 (大部分掃碼槍刷完會自動送出)")
             
         if submit_button and barcode_input:

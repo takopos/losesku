@@ -2,4 +2,5 @@ streamlit
 pandas
 xlsxwriter
 openpyxl
-streamlit-qrcode-scanner
+pyzbar
+Pillow

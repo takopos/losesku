@@ -13,7 +13,7 @@ st.title("📦 POS 商品快速建檔比對工具")
 GDRIVE_DIRECT_URL = "https://drive.google.com/uc?id=1Efffq2OuR3y1qI3Xnngw974wkzJXZub1"
 
 # ⚠️ 請將這裡換成您剛剛在 Google Apps Script 拿到的「網頁應用程式網址」
-GOOGLE_API_URL = "https://script.google.com/macros/s/您的專屬ID/exec" 
+GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbymbXp2yO4htU6dhp6uT7g6CSQUiO-R4c4QCK6Jmzfk_rEbMC6iptDOAUSDyWPc3eLE/exec" 
 
 @st.cache_data(ttl=600)
 def load_master_data():

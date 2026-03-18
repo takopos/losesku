@@ -9,7 +9,7 @@ st.set_page_config(page_title="POS 商品快速建檔比對工具", layout="wide
 st.title("📦 POS 商品快速建檔比對工具")
 
 # 完整商品資料庫連結
-GDRIVE_DIRECT_URL = "https://docs.google.com/spreadsheets/d/1Efffq2OuR3y1qI3Xnngw974wkzJXZub1/edit?usp=sharing&ouid=101526089892891550768&rtpof=true&sd=true"
+GDRIVE_DIRECT_URL = "https://docs.google.com/spreadsheets/d/1Efffq2OuR3y1qI3Xnngw974wkzJXZub1/export?format=xlsx"
 
 # ⚠️ 請確保這裡貼上的是您在 Google Apps Script 拿到的「網頁應用程式網址」
 GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbymbXp2yO4htU6dhp6uT7g6CSQUiO-R4c4QCK6Jmzfk_rEbMC6iptDOAUSDyWPc3eLE/exec" 
@@ -17,7 +17,7 @@ GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbymbXp2yO4htU6dhp6uT7g
 @st.cache_data(ttl=600)
 def load_master_data():
     try:
-        # 加上 engine='openpyxl' 明確告訴系統這是一個 Excel 檔
+        # 使用新的網址，並指定 openpyxl 引擎
         df = pd.read_excel(GDRIVE_DIRECT_URL, engine='openpyxl')
         if '助記碼' in df.columns:
             df['助記碼'] = df['助記碼'].astype(str).str.strip()

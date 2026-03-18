@@ -12,7 +12,7 @@ st.title("📦 POS 商品快速建檔比對工具")
 GDRIVE_DIRECT_URL = "https://docs.google.com/spreadsheets/d/1Efffq2OuR3y1qI3Xnngw974wkzJXZub1/export?format=xlsx"
 
 # ⚠️ 請確保這裡貼上的是您在 Google Apps Script 拿到的「網頁應用程式網址」
-GOOGLE_API_URL = "https://script.google.com/macros/s/您的專屬ID/exec" 
+GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbxxHYC3i0fB4p5F_lIijKAvSMINwMxjHLo8yyyouAV4YNwY797zWBxctk5PbDRPgBzS/exec" 
 
 # --- API 溝通輔助函數 ---
 def add_barcodes_to_api(codes):

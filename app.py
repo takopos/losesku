@@ -17,7 +17,8 @@ GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbymbXp2yO4htU6dhp6uT7g
 @st.cache_data(ttl=600)
 def load_master_data():
     try:
-        df = pd.read_excel(GDRIVE_DIRECT_URL)
+        # 加上 engine='openpyxl' 明確告訴系統這是一個 Excel 檔
+        df = pd.read_excel(GDRIVE_DIRECT_URL, engine='openpyxl')
         if '助記碼' in df.columns:
             df['助記碼'] = df['助記碼'].astype(str).str.strip()
         return df
